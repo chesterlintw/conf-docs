@@ -6,11 +6,9 @@ from Facebook's hackthon event in 2014, which aims to create an open infrastruct
 for BMC firmware development. Unlike the traditional BMC LINUX solutions have lots
 of proprietary codes, openBMC can be a standard and all designs or changes must be
 reviewed based on common principles, which enhance  reliability and compatibity of
-firmware with other systems or services.**
-
-**Since there are more and more cloud providers participate in OpenBMC development,
-it's a good chance to talk about this new framework and how it would affect server
-management in the future.**
+firmware with other systems or services.Since there are more and more cloud providers
+participate in OpenBMC development, it's a good opportunity to talk about this new
+framework and how it would affect server management in the future.**
 
 ## Baseband Management Controller (BMC)
 BMC is a micro-system embedded in server motherboards. It connects with a variety
@@ -24,7 +22,6 @@ NICs, CPLD/FPGA, ... and so on.
 BMC has strong connectivity with hardware components, which uses hundreds of IO
 pins to connect with many devices inside the server. It also has common channels
 such as dedicated/shared LANs, I2C, SPI, USB, ADC, LPC, eSPI, PCIe, .. and so on.
-
 To communicate with devices, BMC supports different protocols such as SMBus, MCTP,
 NC-SI or PLDM.
 
@@ -60,10 +57,9 @@ platforms' resource can still be managed based on standard.
 
 ## Software Stack
 ![Alt text](./pics/meta_layers.svg)
-<img src="./pics/meta_layers.svg">
 
 ### Yocto & Poky
-Yocto is an automation build framework based on OpenEmbedded[3], which focuses
+**Yocto** is an automation build framework based on OpenEmbedded[3], which focuses
 on embedded Linux distribution. It offers tools, packages, hierarchical layers
 and programmable scripts for developers to quickly create and customize their
 own systems. **Poky** is a reference distribution of the Yocto Project[4]. It's
