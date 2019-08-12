@@ -56,7 +56,7 @@ platforms' resource can still be managed based on standard.
 
 
 ## Software Stack
-![Alt text](./pics/meta_layers.svg)
+![Alt text](./pics/meta-layers.png)
 
 ### Yocto & Poky
 **Yocto** is an automation build framework based on OpenEmbedded[3], which focuses
