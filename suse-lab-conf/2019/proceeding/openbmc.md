@@ -34,9 +34,9 @@ BT, SMBus, PMBus, MCTP, NC-SI or PLDM.
      Defined Data Center (SDDC) managment. It consists of HTTP request methods,
      JSON and schema so that management clients can understand how to use APIs
      since different vendors might have different designs.
-   * **SNMP, SMASH-CLI over SSH, WEB or Propietary protcols** owned by vendors.
+   * **SNMP, SMASH-CLI over SSH, WEB or propietary protcols** owned by vendors.
 
-### 1.3 Management targets
+### 1.3 Management Targets
 CPU, GPU, onboard SoCs/FPGA/CPLD, NVMe/SATA SSD, storage controllers, onboard LAN,
 network adapters, thermal control, PSUs, voltage/current sensors, power management,
 UEFI or other firmwares' status and configuration, device hotplug, ... etc.
@@ -51,8 +51,8 @@ versions. OpenBMC can be a model to unify firmware infrastructure and its instan
 can work across hterogeneous systems therefore resources among different platforms
 can still be managed based on standard.
 
-## 3. Software Stack
-![Alt text](./pics/meta-layers.png)
+## 3. Framework
+![meta-layers](./pics/layers.png)
 
 ### 3.1 Yocto & Poky
 **Yocto** is an automation build framework based on OpenEmbedded[3], which focuses
@@ -64,31 +64,15 @@ from yocto/poky but it's not listed in yocto's repository list.
 
 
 ### 3.2 BitBake
-A automatic build tool written in Python, which is mainly used by *Poky* for
-handling cross-compilation prorcess of embedded Linux or open source packages.
-To create a build target, developers need to implement the following items:
+An automatic build tool written in Python, which is mainly used by *Poky*. Like
+GNU make, it controls the building flows of embedded linux distributions and
+related open source packages, such as downloading required tool-chains, source
+packages, finding CPU-arch and code dependencies, cross-compiling, image creations
+..., etc. In OpenBMC, BitBake needs the following items in order to build a machine
+target:
 
-#### 3.2.1 classes: (*.bbclass)
-A class file has common variables that can be shared among different recipes,
-and it can also have python scripts to specifically define build actions, such
-as compile, install, image & signature generation, ... etc.
-
-#### 3.2.2 recipe-*
-The recipes are used to customize each feature or package's build parameters,
-such as source path [local/SCM/etc], dependencies on specific modules, branch
-name or commit hash, lincense information, patch files, .. and so on. Baed on
-these information BitBake can undestand how to deal with build requirements.
-Each layer can have its own recipes or overwrite upper-layers' recipes.
-*Examples: recipe-bsp/u-boot, recipe-core/systemd, recipe-kernel,
-recipes-phosphor/images, .. etc.*
-
-**.bb or .bbappend files:** These files contains detail build parameters that
-recipes will need. Each recipe could have its own .bb files or it can use
-.bbappend files to add changes on upper-layers' recipes or even overwrite it.
-Specific scripts are also possible like we have mentioned in *classes*.
-
-#### 3.2.3 meta-* layers:
-An openBMC firmware consists of multiple layers:
+#### 3.2.1 meta layers:
+An OpenBMC firmware consists of multiple layers:
 
   * **/meta-openembedded:** The OpenEmbedded core used in OpenBMC
 
@@ -99,17 +83,23 @@ An openBMC firmware consists of multiple layers:
     * meta-nuvoton: NUVOTON ncpm7xx [armv7]
     * meta-fsp2: IBM FSP2 [ppc44x]
 
-    Both astxx and ncpmxx can choose upstream kernel & u-boot. However different
-    hardware platforms have different device-tree blobs (dtb) despite some of
-    them uses the same SoC. For example,
-    * The purpose of GPIO pins can be different.
-    * I2C clock freq / I2C MUX addresses can be different.
-    * Specific CPLD / FPGA control which could differ among platforms.
-    * Specific thermal components or sensor measuring.
+    These layers can choose upstream kernel and u-boot since most of
+    codes have been merged into upstream recent years. However different
+    hardware platforms can have different device-tree blobs (dtb) despite some
+    machines use the same SoC. The reasons could be:
+    * Specific thermal components and sensors.
+    * Specific GPIO-pin definitions.
+    * Peripheral bus settings and purposes can be different. E.g, I2C.
+    * CPLD / FPGA control which could differ among platforms.
     * Enabling / Disabling hardware components based on different applications.
 
+    To fulfill the custom requirements, the hardware vendors should have their
+    .dts files to describe their platforms' device trees. See more details in
+    linux-kernel source: /arch/arm/boot/dts/\*bmc\*.dts\*
+
   * **meta-phorsphor:** A major layer which contains the code-base that a BMC
-    firmware needs, such as ipmi, network managment, logging, .
+    firmware needs, such as ipmi, network managment, logging, sensor porting,
+    certificate, image handling, etc.
 
   * **Cloud/HW vendors:** meta-facebook, meta-ibm, meta-google, meta-microsoft,
     meta-intel, meta-qualcomm, meta-quanta, meta-inventec, meta-lenovo ..., etc.
@@ -119,44 +109,76 @@ An openBMC firmware consists of multiple layers:
   * **Host Platform layers:** meta-ibm/meta-romulus, meta-ibm/meta-z,
     meta-intel/meta-s2600wf, meta-microsoft/meta-olympus..., etc.
 
-### 3.3 The running services within OpenBMC
-**systemd** manages and controls all services in openbmc. Most of daemons in OpenBmc
-are systemd-based with specific prefix like **xyz.openbmc_project.**, **obmc-**
+#### 3.2.2 recipes
+Recipes are used to customize each feature or package's build parameters,
+such as source path [local/SCM/etc], dependencies on specific modules, branch
+name or commit hash, lincense information, patch files, .. and so on. Baed on
+these information BitBake can undestand how to deal with build requirements.
+Each layer can have its own recipes or overwrite upper-layers' recipes. For
+example, A platform can overwrite a part of recipes-phosphor inherited from
+meta-phorsphor or other layers if it has customized implementation, such as
+GPIO definitions, sensors, LED settings ..., etc.
+*Other examples: recipe-bsp/u-boot, recipe-core/systemd, recipe-kernel,
+recipes-phosphor/images, .. etc.*
+
+A recipe might have **.bb and .bbappend files**. These files contain detail build
+parameters a recipe will need to build a package. Each recipe could have its own
+.bb files or it can use .bbappend files to add changes on upper-layers' recipes
+or even overwrite them. Specific python scripts can also be included in .bb or
+.bbappend in order to add more variants on the build process.
+
+#### 3.2.3 classes: (*.bbclass)
+A bbclass contains common variables which can be shared among different recipes,
+and it can also have python scripts to specifically define build actions, such
+as compile, install, image & signature generation, ... etc.
+
+#### 3.2.4 meta-layer/conf
+Some layers have config files under the conf folder, and BitBake has to read these
+files in order to understand the preffered options, depending layers, recipes and
+machine name that this layer will need before starting a build process.
+
+## 4. Software Stack
+
+### 4.1 The Running Services in OpenBMC
+![service](pics/service.png)
+
+**systemd** starts and manages all services in openbmc. Most of daemons in OpenBmc
+are systemd-based which have specific prefix like **xyz.openbmc_project.**, **obmc-**
 or **phosphor-**", and all systemd units are under /lib/systemd/system/.
 
 **D-Bus**: In OpenBMC, inter-service communication relies on D-Bus. When users
-interacts with an OpenBMC firmware, such as polling machine/sensor status, changing
+interact with an OpenBMC firmware, such as polling machine/sensor status, changing
 configs, managing user settings ... etc, all data-flows also happen on D-Bus.
 **phorphor-dbus-monitor** is designed to listen and react all BMC-related events,
 and it can invoke event handlers if registered. *For example, a service raised a
 PropertiesChanged event so that other services could be aware of it and even took
 actions accordingly.* You can try "busctl --system" on BMC console for more details.
 
-**bmcweb** provides a variety of web services via http such as web interface,
-redfish, IKVM, virtual media, .. etc. It integrates **crow** as its http server,
-which is based on boost & C++11. **phorsphor-webui** includes a set of WebUI files
-[html/css/js] packed by webpack so that users can access BMC via web. It also
+**bmcweb** provides multiple services via https such as web interface, redfish,
+IKVM, virtual media ..., etc. It integrates **crow** as its http server, which is
+based on boost and C++11. **phorsphor-webui** includes a set of WebUI files
+[html5/js/css] packed by webpack so that users can access BMC via web. It also
 contains RESTful calls based on AngularJS in order to let the client side can
 communicate with BMC firmware via REST API.
 
 **obmc-ikvm:** Remote Keyboard/Video/Mosue Interface based on noVNC.
 
-**ipmid:** **phosphor-host-ipmid** is the major ipmi daemon for handling most of
-ipmi commands and communication packets between BMC and host via KCS or BT channel.
+**ipmid:** **phosphor-host-ipmid** is the major ipmi daemon for handling ipmi
+requests and communication packets between BMC and host via KCS or BT channel.
 **phopsphor-net-ipmid** relies on phosphor-host-ipmi but it's responsible for
 dealing with ipmi requests from LAN channels.
 
-**Others:** phorsphor-log-manager, phorsphor-network-manager, phospher-network-manager
+**Others:** phorsphor-log-manager, phorsphor-user-manager, phospher-network-manager
 ..., etc.
 
-### 3.4 YAML descriptors of D-Bus interfaces
+### 4.2 YAML Descriptors of D-Bus Interface
 OpenBMC offers two types of yaml: *.interface.yaml* and *.error.yaml*. YAML is
 used to define schema of service interfaces, such as properties, methods,
-enumerations or error codes that services will need in DBus communication.In the
-repo of phorsphor-dbus-interface[5], all kinds of .interface.yaml files are
-defined here, such as sensor interface,, power control interface, .. etc. OpenBMC
-hierarchially presents every interface by the following rule:
-> xyz.openbmc_project.<category>.<subcategory>....<function>
+enumerations or error codes that services will need in DBus communication. The
+repo phorsphor-dbus-interface[5] defines all kinds of .interface.yaml files, such
+as sensor interface, power control interface ..., etc. OpenBMC hierarchially
+presents every interface by the following rule:
+> xyz.openbmc_project."category"."subcategory"...."function"
 
 For example,
 > xyz.openbmc_project.Control.FanPwm  // FAN PWM control
@@ -165,24 +187,68 @@ For example,
 >
 > xyz.openbmc_project.NVMe.Status.interface.yaml //NVMe status
 
-While running the firmware build process, the **sdbus++**[6] tool converts all.yaml
-files into coressponding server.cpp files, and all these server.cpp files would
-be combined as one libphosphor_dbus.cpp, which will be compiled as
-libphosphor_dbus.so.0 and will be used by lots of phorsphor-* services.
+While running the firmware build process, the **sdbus++**[6] tool converts all
+.yaml files to coressponding server.cpp files, and all server.cpp files would be
+merged into a libphosphor_dbus.cpp, which will be compiled as libphosphor_dbus.so.0.
+Then this shared library will be used by all OpenBMC services on D-BUS.
 
-### 3.5 OpenBMC REST API
-Apart from Redfish, OpenBMC designs its RESTful API [7][8] as primary management
-interface. Per the request methods [GET/POST/PUT/PATCH] via HTTPS, users can
-access and control resources that openBMC is managing. Like Redish, this API also
-uses JSON to compose reqeusts or responses.
+### 4.3 OpenBMC REST API
+Apart from Redfish, OpenBMC has its RESTful API [7][8] as primary management
+interface. Per the request methods of HTTPS [GET/POST/PUT/PATCH], users can access
+and control resources that openBMC is managing. Like Redish, this API also uses
+JSON as request and response format. Here is an example of enumerating the eth0
+on BMC:
+
+    chester@linux-8mug:~> curl -k -X GET https://root:0penBmc@${bmc}:${bmcport}/xyz/openbmc_project/network/eth0/enumerate
+    {
+      "data": {
+        "/xyz/openbmc_project/network/eth0": {
+          "AutoNeg": false,
+          "DHCPEnabled": true,
+          "DomainName": [],
+          "IPv6AcceptRA": false,
+          "InterfaceName": "eth0",
+          "LinkLocalAutoConf": "xyz.openbmc_project.Network.EthernetInterface.LinkLocalConf.both",
+          "MACAddress": "52:54:0:12:34:56",
+          "NTPServers": [],
+          "Nameservers": [],
+          "Speed": 0
+        },
+        "/xyz/openbmc_project/network/eth0/ipv4/49e97e86": {
+          "Address": "10.0.2.15",
+          "Gateway": "",
+          "Origin": "xyz.openbmc_project.Network.IP.AddressOrigin.DHCP",
+          "PrefixLength": 24,
+          "Type": "xyz.openbmc_project.Network.IP.Protocol.IPv4"
+        },
+        "/xyz/openbmc_project/network/eth0/ipv6/ff024971": {
+          "Address": "fe80::5054:ff:fe12:3456",
+          "Gateway": "",
+          "Origin": "xyz.openbmc_project.Network.IP.AddressOrigin.LinkLocal",
+          "PrefixLength": 64,
+          "Type": "xyz.openbmc_project.Network.IP.Protocol.IPv6"
+        }
+      },
+      "message": "200 OK",
+      "status": "ok"
+    }
+
+### 4.4 Sensor Polling
+The sensor poliing [9] of OpenBMC relies on LINUX HWmon interface [10]. A platform
+layer can create sensor config files in recipes-phosphor/sensors/phosphor-hwmon,
+which provides sensor information to hwmon routines, such as chip models, mmio
+addresses, sysfs paths, sensor labels, indexes, polling intervals, GPIO control,
+warning thresholds ..., and so on. Each sensor config should have a match item
+in the platform's device-tree. By writing the SYSTEMD_ENVIRONMENT_FILE variable
+in phosphor-hwmon_%.bbappend, the **xyz.openbmc_project.Hwmon@.service** can know
+which sensor configs are required before launching hwmon routines.
+
+### 4.5 Binary Utilities
+Most of tools in firmware are from busybox, however there are still some tools
+from util-linux, such as mount,umount, fsck and sulogin.
 
 
-### 3.6 Binary utilities in firmware
-Most of tools are from busybox, however there are still some tools from util-linux,
-such as mount,umount, fsck and sulogin.
-
-
-### 3.7 Image, partition and boot-flow
+## 5. Images, Partitions and Boot-Flow
 As a fitImage, an openbmc firmware image consists of several parts, such as u-boot
 code & env, kernel image, initramfs and FDTs. To check firmware integrity, some
 of them must be verified by sha256 hash values before booting to the kernel. The
@@ -190,53 +256,54 @@ default file paritions are based on MTD, which is written in this DT file:
 > kernel-src/arch/arm/boot/dts/openbmc-flash-layout.dtsi
 
 However it's still able to add or overwrite partitions. Apart from the static
-layout, a UBI image format is also selectable.
+layout, the UBI (Unsorted Block Images) format is also selectable.
 
-**Firmware-Boot-Flow:** SoC-BootROM-> U-Boot -> verify sha256 sig of kernel,
-initramfs and fdt -> running initramfs -> start systemd -> default.target ->
+**Firmware-Boot-Flow:** SoC-Bootrom-> U-Boot -> verify image signatures ->
+boot kernel -> mount initramfs -> start systemd -> default.target ->
 multi-user.target -> start all bmc-fw daemons.
 
 
-### 4. Firmware Security
-**Signed firmware image** [10] has been implemented based on OpenSSL. This design
-prevents OpenBMC from updating unreliable image sources, which could cause firmware
-vulnerabilities or backdoors.
+## 6. Firmware Security
+**Signed firmware image** [11] has been implemented based on OpenSSL. This design
+prevents OpenBMC from updating unreliable firmware images, which could be exploited
+as vulnerabilities or backdoors.
 
 **phosphor-certificate-manager**: This service provides a unified interface to
-manage all kinds of certificates, including https, user authentication..., etc.
+manage all kinds of certificates, including https, user authentication ..., etc.
 
 **User Management:** OpenBMC relies on PAM module to authenticate users, and it
 avoids transmitting passwords on D-BUS for security concerns. It also support
 Group & Privilege Roles in order to distinguish privileged and non-privileged
-users. [9]
+users. [12]
+
   * Groups: ssh, ipmi, redfish and web.
   * Privileges: admin, operator, user, callback.
 
-**Networking**
-TLS is enabled on the following functions: IPMI-RAKP, HTTPS for WEB, REST APIs,
-IKVM/Virtual-Media, SOL..., etc. However OpenBMC hasn't integrated a firewall
-application for users to filter network traffic.
+**Networking**: **TLS** is enabled on the following functions: IPMI-RAKP, HTTPS
+for WEB, REST APIs, IKVM/Virtual-Media, SOL..., etc. However OpenBMC hasn't
+integrated a firewall application for users to filter network traffic. **X-Auth**
+can be used in Redfish sessions as credentials for accessing Redfish URLs.
 
-**Security Response Team**: OpenBMC has a workflow for community members to report
-any vulnerability to the response team.
+**Security Response Team**: OpenBMC has a workflow for community members
+to report any vulnerability to the response team.
 
-### 5. Market opportunities for SUSE
+## 7. Market Opportunities for SUSE
 SUSE Manager might be a good start to integrate openBMC APIs in order to achieve
 micro management of physical resources in data-ceneter, such as power managment,
 storage control, device hotplug, all server firmwares' update, critical failure
 warning, ..., etc.
 
 ### References
-1. IPMI 2.0: https://www.intel.la/content/www/xl/es/servers/ipmi/ipmi-technical-resources.html
-2. Redfish API: https://www.dmtf.org/standards/redfish
-3. Yocto: https://www.yoctoproject.org/docs/2.7/brief-yoctoprojectqs/brief-yoctoprojectqs.html
-4. Poky: https://www.yoctoproject.org/software-item/poky/
-5. phorsphor-dbus-interface:https://github.com/openbmc/phosphor-dbus-interfaces
-6. sdbus++: https://github.com/openbmc/sdbusplus
-7. https://github.com/openbmc/docs/blob/master/rest-api.md
-8. https://github.com/openbmc/docs/blob/master/REST-cheatsheet.md
-9. https://gerrit.openbmc-project.xyz/c/openbmc/openbmc/+/8949
+1.  https://www.intel.la/content/www/xl/es/servers/ipmi/ipmi-technical-resources.html
+2.  https://www.dmtf.org/standards/redfish
+3.  https://www.yoctoproject.org/docs/2.7/brief-yoctoprojectqs/brief-yoctoprojectqs.html
+4.  https://www.yoctoproject.org/software-item/poky/
+5.  https://github.com/openbmc/phosphor-dbus-interfaces
+6.  https://github.com/openbmc/sdbusplus
+7.  https://github.com/openbmc/docs/blob/master/rest-api.md
+8.  https://github.com/openbmc/docs/blob/master/REST-cheatsheet.md
+9.  https://github.com/openbmc/docs/blob/master/sensor-architecture.md
+10. https://www.kernel.org/doc/Documentation/hwmon/sysfs-interface
+11. https://gerrit.openbmc-project.xyz/c/openbmc/openbmc/+/8949
+12. https://github.com/openbmc/docs/blob/master/user_management.md
 
----
-## Notes
-* <TODO>: phosphor-hwmon: Sensors / Hardware Monitors? ObjectMapper in D-Bus & Hwmon?
