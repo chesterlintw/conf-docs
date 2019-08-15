@@ -6,24 +6,24 @@ from Facebook's hackthon event in 2014, which aims to create an open infrastruct
 for BMC firmware development. Unlike the traditional BMC LINUX solutions have lots
 of proprietary codes, openBMC can be a standard and all designs or changes must be
 reviewed based on common principles, which enhance reliability and compatibity of
-firmware with other systems or services.Since there are more and more cloud providers
-participate in OpenBMC development, it's a good opportunity to talk about this new
-framework and how it would affect server management in the future.**
+firmware with other systems or services. Since there are more and more cloud
+providers participate in OpenBMC development, it's a good opportunity to talk about
+this new framework and how it would affect server management in the future.**
 
 ## 1. Baseband Management Controller (BMC)
-BMC is a micro-system embedded in server boards, which is widely adopted by data
-center products. It connects with a variety of components inside a server so that
-system managment software can monitor, configure and manage hardware and firmware
-resources via BMC. BMC can also apply firmware update to these components, which
-increases the efficiency of data center management so that new settings or security
-patches can be deployed quickly and massively.
+BMC is a micro-system embedded in server boards, which is widely adopted by server,
+data-center and IPC industries. It connects with a variety of components inside a
+system so that system managment software can monitor, configure and manage hardware
+and firmware resources via BMC. BMC can also apply firmware update to these
+components, which increases the efficiency of data center management so that new
+settings or security patches can be deployed quickly and massively.
 
 ### 1.1 Hardware Interfaces
-BMC has strong connectivity with hardware components, which uses hundreds of IO
-pins to connect with many devices inside the server. It also has common channels
-such as dedicated/shared LANs, I2C, SPI, SDIO, USB, ADC, LPC, eSPI, PCIe, .. and
-so on. To communicate with devices, BMC supports different protocols such as KCS,
-BT, SMBus, PMBus, MCTP, NC-SI or PLDM.
+BMC has strong connectivity, which uses hundreds of IO pins to connect with many
+hardware components based on common channels such as dedicated/shared LANs, I2C,
+I3C, SPI, SDIO, USB, ADC, LPC, eSPI, PCIe, .. and so on. To communicate with
+devices, BMC supports different protocols such as KCS, BT, SMBus, PMBus, MCTP,
+NC-SI or PLDM.
 
 ### 1.2 Software Interfaces.
    * **IPMI 2.0** [1] is one of major managment protocol used in BMC firmware
@@ -33,11 +33,11 @@ BT, SMBus, PMBus, MCTP, NC-SI or PLDM.
      based on RESTful and aims to provide simple but secured methods for Software
      Defined Data Center (SDDC) managment. It consists of HTTP request methods,
      JSON and schema so that management clients can understand how to use APIs
-     since different vendors might have different designs.
+     even though hardware vendors could have their custom features.
    * **SNMP, SMASH-CLI over SSH, WEB or propietary protcols** owned by vendors.
 
 ### 1.3 Management Targets
-CPU, GPU, onboard SoCs/FPGA/CPLD, NVMe/SATA SSD, storage controllers, onboard LAN,
+CPU, GPU, onboard SoCs/FPGA/CPLD, NVMe/SATA SSD, storage controllers, onboard LANs,
 network adapters, thermal control, PSUs, voltage/current sensors, power management,
 UEFI or other firmwares' status and configuration, device hotplug, ... etc.
 
@@ -49,7 +49,7 @@ proprietary designs for managing server resources. Beisdes, these BSPs could als
 be outdated and insecure since they might not regularly merge with with upstream
 versions. OpenBMC can be a model to unify firmware infrastructure and its instances
 can work across hterogeneous systems therefore resources among different platforms
-can still be managed based on standard.
+can be managed by the same standard.
 
 ## 3. Framework
 ![meta-layers](./pics/layers.png)
@@ -60,16 +60,15 @@ on embedded Linux distribution. It offers tools, packages, hierarchical layers
 and programmable scripts for developers to quickly create and customize their
 own systems. **Poky** is a reference distribution of the Yocto Project[4]. It's
 the core that openbmc uses as the build framework. Despite OpenBMC is derived
-from yocto/poky but it's not listed in yocto's repository list.
+from yocto/poky but it's not listed on the repository list of Yocto.
 
 
 ### 3.2 BitBake
 An automatic build tool written in Python, which is mainly used by *Poky*. Like
 GNU make, it controls the building flows of embedded linux distributions and
-related open source packages, such as downloading required tool-chains, source
-packages, finding CPU-arch and code dependencies, cross-compiling, image creations
-..., etc. In OpenBMC, BitBake needs the following items in order to build a machine
-target:
+related open source packages, such as downloading required tool chains, source
+packages, finding CPU ARCH and code dependencies, cross-compiling, image creation
+..., etc. In OpenBMC, BitBake needs the following items to build a machine target:
 
 #### 3.2.1 meta layers:
 An OpenBMC firmware consists of multiple layers:
@@ -84,9 +83,9 @@ An OpenBMC firmware consists of multiple layers:
     * meta-fsp2: IBM FSP2 [ppc44x]
 
     These layers can choose upstream kernel and u-boot since most of
-    codes have been merged into upstream recent years. However different
-    hardware platforms can have different device-tree blobs (dtb) despite some
-    machines use the same SoC. The reasons could be:
+    codes have been merged into upstream recent years. However hardware platforms
+    can still have different device-tree blobs (dtb) despite some machines use
+    the same SoC. The reasons could be:
     * Specific thermal components and sensors.
     * Specific GPIO-pin definitions.
     * Peripheral bus settings and purposes can be different. E.g, I2C.
@@ -97,23 +96,26 @@ An OpenBMC firmware consists of multiple layers:
     .dts files to describe their platforms' device trees. See more details in
     linux-kernel source: /arch/arm/boot/dts/\*bmc\*.dts\*
 
-  * **meta-phorsphor:** A major layer which contains the code-base that a BMC
-    firmware needs, such as ipmi, network managment, logging, sensor porting,
+  * **meta-phorsphor:** A major layer which contains the code-base a BMC firmware
+    needs, such as IPMI protocol, network managment, logging, sensor porting,
     certificate, image handling, etc.
 
-  * **Cloud/HW vendors:** meta-facebook, meta-ibm, meta-google, meta-microsoft,
+  * **Cloud/HW vendor layer:** A place to hold a vendor's common features among
+    its platforms. Examples: meta-facebook, meta-ibm, meta-google, meta-microsoft,
     meta-intel, meta-qualcomm, meta-quanta, meta-inventec, meta-lenovo ..., etc.
 
-  * **Host CPU-ARCH layers:** meta-x86, meta-openpower, meta-arm.
+  * **Host CPU-ARCH layer:** A place to hold common features of a CPU architecture
+    used by the server host. Examples: meta-x86, meta-openpower, meta-arm.
 
-  * **Host Platform layers:** meta-ibm/meta-romulus, meta-ibm/meta-z,
-    meta-intel/meta-s2600wf, meta-microsoft/meta-olympus..., etc.
+  * **Host Platform layer:** Platform-specific features put here. Examples:
+    meta-ibm/meta-romulus, meta-ibm/meta-z, meta-intel/meta-s2600wf,
+    meta-microsoft/meta-olympus..., etc.
 
 #### 3.2.2 recipes
 Recipes are used to customize each feature or package's build parameters,
 such as source path [local/SCM/etc], dependencies on specific modules, branch
-name or commit hash, lincense information, patch files, .. and so on. Baed on
-these information BitBake can undestand how to deal with build requirements.
+name or commit hash, lincense information, patch files, .. and so on. Based on
+these information, BitBake can undestand how to deal with build requirements.
 Each layer can have its own recipes or overwrite upper-layers' recipes. For
 example, A platform can overwrite a part of recipes-phosphor inherited from
 meta-phorsphor or other layers if it has customized implementation, such as
@@ -152,7 +154,7 @@ configs, managing user settings ... etc, all data-flows also happen on D-Bus.
 **phorphor-dbus-monitor** is designed to listen and react all BMC-related events,
 and it can invoke event handlers if registered. *For example, a service raised a
 PropertiesChanged event so that other services could be aware of it and even took
-actions accordingly.* You can try "busctl --system" on BMC console for more details.
+actions accordingly.* You can try "busctl \--system" on BMC console for more details.
 
 **bmcweb** provides multiple services via https such as web interface, redfish,
 IKVM, virtual media ..., etc. It integrates **crow** as its http server, which is
@@ -290,8 +292,8 @@ to report any vulnerability to the response team.
 ## 7. Market Opportunities for SUSE
 SUSE Manager might be a good start to integrate openBMC APIs in order to achieve
 micro management of physical resources in data-ceneter, such as power managment,
-storage control, device hotplug, all server firmwares' update, critical failure
-warning, ..., etc.
+storage configuration, device hotplug, all server firmwares' update, critical
+failure warning, ..., etc.
 
 ### References
 1.  https://www.intel.la/content/www/xl/es/servers/ipmi/ipmi-technical-resources.html
